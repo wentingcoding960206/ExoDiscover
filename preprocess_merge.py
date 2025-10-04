@@ -27,7 +27,7 @@ def load_nasa_csv(filepath):
             return pd.DataFrame()
 
 def merge_exoplanet_datasets():
-    """Simple script to merge Kepler, K2, and TESS datasets"""
+    """Simple script to merge Kepler, K2, and TESS datasets including planet names"""
     
     print("🪐 Loading and merging exoplanet datasets...")
     
@@ -52,6 +52,15 @@ def merge_exoplanet_datasets():
     
     # Process Kepler data - only if we have data
     if len(kepler_df) > 0:
+        # Planet names for Kepler
+        if 'kepler_name' in kepler_df.columns:
+            kepler_clean['planet_name'] = kepler_df['kepler_name']
+        elif 'kepoi_name' in kepler_df.columns:
+            kepler_clean['planet_name'] = kepler_df['kepoi_name']
+        elif 'kepid' in kepler_df.columns:
+            kepler_clean['planet_name'] = 'KIC ' + kepler_df['kepid'].astype(str)
+        
+        # Scientific features
         if 'koi_period' in kepler_df.columns:
             kepler_clean['orbital_period'] = kepler_df['koi_period']
         if 'koi_prad' in kepler_df.columns:
@@ -79,6 +88,13 @@ def merge_exoplanet_datasets():
     
     # Process K2 data
     if len(k2_df) > 0:
+        # Planet names for K2
+        if 'pl_name' in k2_df.columns:
+            k2_clean['planet_name'] = k2_df['pl_name']
+        elif 'hostname' in k2_df.columns:
+            k2_clean['planet_name'] = k2_df['hostname'] + ' b'  # Common exoplanet naming
+        
+        # Scientific features
         if 'pl_orbper' in k2_df.columns:
             k2_clean['orbital_period'] = k2_df['pl_orbper']
         if 'pl_rade' in k2_df.columns:
@@ -102,6 +118,13 @@ def merge_exoplanet_datasets():
     
     # Process TESS data
     if len(tess_df) > 0:
+        # Planet names for TESS
+        if 'toi' in tess_df.columns:
+            tess_clean['planet_name'] = 'TOI ' + tess_df['toi'].astype(str)
+        elif 'tid' in tess_df.columns:
+            tess_clean['planet_name'] = 'TIC ' + tess_df['tid'].astype(str)
+        
+        # Scientific features
         if 'pl_orbper' in tess_df.columns:
             tess_clean['orbital_period'] = tess_df['pl_orbper']
         if 'pl_rade' in tess_df.columns:
@@ -153,6 +176,9 @@ def merge_exoplanet_datasets():
     
     if 'disposition' in merged_df.columns:
         print(f"Target distribution: {merged_df['disposition'].value_counts().sort_index()}")
+    
+    if 'planet_name' in merged_df.columns:
+        print(f"Sample planet names: {merged_df['planet_name'].head(5).tolist()}")
     
     # Save merged dataset
     merged_df.to_csv('merged_exoplanets.csv', index=False)
