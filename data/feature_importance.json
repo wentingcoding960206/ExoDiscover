@@ -1,0 +1,11 @@
+{
+  "orbital_period": 0.07992945611476898,
+  "planet_radius": 0.1337416023015976,
+  "transit_depth": 0.18324394524097443,
+  "transit_duration": 0.24843981862068176,
+  "eq_temperature": 0.07346989959478378,
+  "insolation_flux": 0.09844545274972916,
+  "stellar_temp": 0.05787251144647598,
+  "stellar_radius": 0.06522298604249954,
+  "stellar_gravity": 0.059634335339069366
+}

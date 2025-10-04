@@ -1,0 +1,422 @@
+### FILE: README.md
+
+````markdown
+# 🌌 ExoDiscover — YCStarship67
+
+ExoDiscover is an AI/ML-powered exoplanet classification tool developed for the NASA Space Apps Hackathon 2025.
+
+## 🚀 Features
+- ML model trained on open NASA datasets (Kepler, K2, TESS)
+- Flask backend for predictions
+- Interactive web dashboard for data exploration
+
+## 🧩 Team
+- Aadhya Anand — Machine Learning + Data Pipeline
+- Karl Keshavarzi — Backend (Flask + Model API)
+- Daniel Kwan — Backend & Deployment
+- Wen Ting — Frontend Visualizations
+- Grant Ou — Web Design + UX
+- Aditya — Presentation & Communications
+
+## 🛠️ Quickstart
+1. Clone the repo:
+   ```bash
+   git clone <repo-url>
+   cd YCStarship67-ExoDiscover
+````
+
+2. Create a virtualenv and install dependencies:
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+   pip install -r requirements.txt
+   ```
+3. Train model (optional if models/ contains pretrained):
+
+   ```bash
+   python src/train_model.py
+   ```
+4. Run Flask backend:
+
+   ```bash
+   python app/flask_app.py
+   ```
+5. Open frontend (see frontend/README)
+
+## 📁 Structure
+
+See the repository files for full structure and code examples.
+
+## Notes
+
+* Place `merged_cleaned.csv` in `/data/` before training.
+* Share `models/xgb_exo_model.pkl` and `models/label_encoder.pkl` with backend for predictions.
+
+```
+
+---
+
+### FILE: requirements.txt
+```
+
+pandas
+numpy
+scikit-learn
+xgboost
+matplotlib
+joblib
+flask
+flask-cors
+plotly
+requests
+
+```
+
+---
+
+### FILE: .gitignore
+```
+
+venv/
+**pycache**/
+*.pyc
+models/
+data/
+.DS_Store
+.env
+
+````
+
+---
+
+### FILE: src/preprocess.py
+```python
+"""Preprocessing script to standardize and merge Kepler, K2, and TESS datasets.
+This script expects CSVs placed in the data/ directory and outputs merged_cleaned.csv
+"""
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+NUMERIC_FEATURES = [
+    "orbital_period",
+    "transit_duration",
+    "transit_depth",
+    "planet_radius",
+    "eq_temperature",
+    "insolation_flux",
+    "stellar_temp",
+    "stellar_radius",
+    "stellar_gravity",
+    "ra",
+    "dec",
+]
+
+
+def map_kepler(df):
+    # map kepler column names to unified column names
+    mapping = {
+        "koi_period": "orbital_period",
+        "koi_duration": "transit_duration",
+        "koi_depth": "transit_depth",
+        "koi_prad": "planet_radius",
+        "koi_teq": "eq_temperature",
+        "koi_insol": "insolation_flux",
+        "koi_steff": "stellar_temp",
+        "koi_srad": "stellar_radius",
+        "koi_slogg": "stellar_gravity",
+        "ra": "ra",
+        "dec": "dec",
+        "koi_disposition": "disposition",
+    }
+    df = df.rename(columns=mapping)
+    df["source"] = "Kepler"
+    return df
+
+
+def map_k2(df):
+    mapping = {
+        "pl_orbper": "orbital_period",
+        "pl_trandurh": "transit_duration",
+        "pl_trandep": "transit_depth",
+        "pl_rade": "planet_radius",
+        "pl_eqt": "eq_temperature",
+        "pl_insol": "insolation_flux",
+        "st_teff": "stellar_temp",
+        "st_rad": "stellar_radius",
+        "st_logg": "stellar_gravity",
+        "ra": "ra",
+        "dec": "dec",
+        "disposition": "disposition",
+    }
+    df = df.rename(columns=mapping)
+    df["source"] = "K2"
+    return df
+
+
+def map_tess(df):
+    mapping = {
+        "pl_orbper": "orbital_period",
+        "pl_trandurh": "transit_duration",
+        "pl_trandep": "transit_depth",
+        "pl_rade": "planet_radius",
+        "pl_eqt": "eq_temperature",
+        "pl_insol": "insolation_flux",
+        "st_teff": "stellar_temp",
+        "st_rad": "stellar_radius",
+        "st_logg": "stellar_gravity",
+        "ra": "ra",
+        "dec": "dec",
+        "tfopwg_disp": "disposition",
+    }
+    df = df.rename(columns=mapping)
+    # map TESS disposition codes to text
+    if "disposition" in df.columns:
+        df["disposition"] = df["disposition"].map({
+            "CP": "Confirmed",
+            "PC": "Candidate",
+            "FP": "False Positive",
+            "KP": "Candidate",
+        }).fillna(df.get("disposition"))
+    df["source"] = "TESS"
+    return df
+
+
+def standardize_and_merge(kepler_path, k2_path, tess_path, out_path="data/merged_cleaned.csv"):
+    k = pd.read_csv(kepler_path, comment="#")
+    k = map_kepler(k)
+
+    k2 = pd.read_csv(k2_path, comment="#")
+    k2 = map_k2(k2)
+
+    t = pd.read_csv(tess_path, comment="#")
+    t = map_tess(t)
+
+    # Keep only columns we care about (if present)
+    cols = ["disposition", "source"] + NUMERIC_FEATURES
+    merged = pd.concat([
+        k.reindex(columns=cols),
+        k2.reindex(columns=cols),
+        t.reindex(columns=cols),
+    ], ignore_index=True)
+
+    # Drop rows with missing critical values
+    merged = merged.dropna(subset=["planet_radius", "orbital_period", "stellar_temp"], how="any")
+
+    # Map dispositions to standardized labels
+    merged["disposition"] = merged["disposition"].replace({
+        "CONFIRMED": "Confirmed",
+        "CANDIDATE": "Candidate",
+        "FALSE POSITIVE": "False Positive",
+    })
+
+    # Numeric scaling
+    scaler = StandardScaler()
+    num_present = [c for c in NUMERIC_FEATURES if c in merged.columns]
+    merged[num_present] = scaler.fit_transform(merged[num_present])
+
+    merged.to_csv(out_path, index=False)
+    print(f"Merged dataset saved to {out_path}. Rows: {len(merged)}")
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--kepler", required=True)
+    parser.add_argument("--k2", required=True)
+    parser.add_argument("--tess", required=True)
+    parser.add_argument("--out", default="data/merged_cleaned.csv")
+    args = parser.parse_args()
+    standardize_and_merge(args.kepler, args.k2, args.tess, args.out)
+````
+
+---
+
+### FILE: src/train_model.py
+
+```python
+"""Train XGBoost classifier on merged dataset and save model + label encoder."""
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from xgboost import XGBClassifier
+import joblib
+import json
+
+
+def train_xgb(merged_csv_path="data/merged_cleaned.csv", model_out_path="models/xgb_exo_model.pkl", encoder_out_path="models/label_encoder.pkl", feat_out_path="data/feature_importance.json"):
+    df = pd.read_csv(merged_csv_path)
+
+    # Drop non-feature columns
+    X = df.drop(columns=["disposition", "source"], errors="ignore")
+    y = df["disposition"].astype(str)
+
+    # Encode labels
+    le = LabelEncoder()
+    y_enc = le.fit_transform(y)
+
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(X, y_enc, test_size=0.2, random_state=42, stratify=y_enc)
+
+    model = XGBClassifier(
+        n_estimators=400,
+        max_depth=8,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        eval_metric="mlogloss",
+        use_label_encoder=False,
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    model.fit(X_train, y_train)
+
+    # Evaluate
+    y_pred = model.predict(X_test)
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+    # Feature importances
+    importances = dict(zip(X.columns, model.feature_importances_.tolist()))
+    with open(feat_out_path, "w") as f:
+        json.dump(importances, f, indent=2)
+
+    # Save model + encoder
+    joblib.dump(model, model_out_path)
+    joblib.dump(le, encoder_out_path)
+    print("Saved model and label encoder.")
+
+
+if __name__ == "__main__":
+    train_xgb()
+```
+
+---
+
+### FILE: src/utils.py
+
+```python
+import pandas as pd
+
+
+def load_sample_predictions(path="data/sample_predictions.json"):
+    return pd.read_json(path)
+```
+
+---
+
+### FILE: app/flask_app.py
+
+```python
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import joblib
+import pandas as pd
+import numpy as np
+
+app = Flask(__name__)
+CORS(app)
+
+# Load pretrained model and encoder (place these files in models/)
+MODEL_PATH = "models/xgb_exo_model.pkl"
+ENC_PATH = "models/label_encoder.pkl"
+
+model = None
+label_encoder = None
+
+
+def load_model():
+    global model, label_encoder
+    model = joblib.load(MODEL_PATH)
+    label_encoder = joblib.load(ENC_PATH)
+    print("Model and label encoder loaded.")
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
+@app.route("/predict_tabular", methods=["POST"])
+def predict_tabular():
+    if model is None:
+        return jsonify({"error": "model not loaded"}), 500
+
+    data = request.get_json()
+    # Expect a single sample or a list of samples matching training features
+    if isinstance(data, dict):
+        df = pd.DataFrame([data])
+    else:
+        df = pd.DataFrame(data)
+
+    # Align columns: if any missing cols present, fill with 0
+    model_cols = model.get_booster().feature_names if hasattr(model, 'get_booster') else df.columns
+    for c in model_cols:
+        if c not in df.columns:
+            df[c] = 0
+
+    preds = model.predict(df)
+    probs = model.predict_proba(df)
+
+    out = []
+    for p, pr in zip(preds, probs):
+        out.append({
+            "prediction": label_encoder.inverse_transform([p])[0],
+            "confidence": float(np.max(pr))
+        })
+
+    if len(out) == 1:
+        return jsonify(out[0])
+    return jsonify(out)
+
+
+@app.route("/explore", methods=["GET"])
+def explore():
+    # Return a small slice of merged dataset for frontend exploration
+    try:
+        df = pd.read_csv("data/merged_cleaned.csv")
+        sample = df.sample(min(50, len(df))).to_dict(orient="records")
+        return jsonify(sample)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    load_model()
+    app.run(host="0.0.0.0", port=5000, debug=True)
+```
+
+---
+
+### FILE: data/.gitkeep
+
+```
+# place merged_cleaned.csv here; large data files should not be committed to git in most cases
+```
+
+---
+
+### FILE: models/.gitkeep
+
+```
+# place trained models here (xgb_exo_model.pkl, label_encoder.pkl). Do not commit large binaries if possible.
+```
+
+---
+
+### FILE: frontend/README.md
+
+```markdown
+Frontend lives here. For hackathon, build a React app that queries the Flask backend endpoints:
+- GET /explore -> returns dataset slice
+- POST /predict_tabular -> accepts JSON feature object(s) and returns prediction(s)
+
+Use Plotly.js for light curve and scatter visualizations. Keep components:
+- Filters
+- Results
+- LightCurvePlot
+- FeatureScatter
+```
