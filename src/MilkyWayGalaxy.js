@@ -360,6 +360,26 @@ const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect, filt
         />
       </div>
 
+      {/* Classification Statistics */}
+      <div style={{
+        marginBottom: '20px',
+        padding: '10px',
+        backgroundColor: 'rgba(30, 58, 138, 0.2)',
+        borderRadius: '8px',
+        fontSize: '12px',
+        lineHeight: '1.6'
+      }}>
+        <div style={{ color: '#10b981' }}>
+          ✓ Confirmed: {filteredPlanets.filter(p => p.classification === 2).length}
+        </div>
+        <div style={{ color: '#ef4444' }}>
+          ○ Candidate: {filteredPlanets.filter(p => p.classification === 1).length}
+        </div>
+        <div style={{ color: '#6b7280' }}>
+          ✗ False Positive: {filteredPlanets.filter(p => p.classification === 0).length}
+        </div>
+      </div>
+
       {/* Planet Counter */}
       <div style={{ 
         marginBottom: '15px', 
@@ -408,6 +428,42 @@ const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect, filt
 const PlanetCard = memo(({ planet, isSelected, onClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Determine classification status
+  const getClassificationInfo = (classification) => {
+    switch(classification) {
+      case 2:
+        return {
+          text: '✓ Confirmed Exoplanet',
+          color: '#10b981',
+          bgColor: 'rgba(16, 185, 129, 0.2)',
+          borderColor: 'rgba(16, 185, 129, 0.5)'
+        };
+      case 1:
+        return {
+          text: '○ Exoplanet Candidate',
+          color: '#ef4444',
+          bgColor: 'rgba(239, 68, 68, 0.2)',
+          borderColor: 'rgba(239, 68, 68, 0.5)'
+        };
+      case 0:
+        return {
+          text: '✗ False Positive',
+          color: '#6b7280',
+          bgColor: 'rgba(107, 114, 128, 0.2)',
+          borderColor: 'rgba(107, 114, 128, 0.5)'
+        };
+      default:
+        return {
+          text: '? Unknown Status',
+          color: '#fbbf24',
+          bgColor: 'rgba(251, 191, 36, 0.2)',
+          borderColor: 'rgba(251, 191, 36, 0.5)'
+        };
+    }
+  };
+
+  const classificationInfo = getClassificationInfo(planet.classification);
+
   return (
     <div
       style={{
@@ -421,7 +477,7 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
           : '0 0 15px rgba(0,0,40,0.5)',
         border: isSelected 
           ? '1px solid rgba(96,165,250,0.5)' 
-          : '1px solid rgba(59,130,246,0.2)',
+          : `1px solid ${classificationInfo.borderColor}`,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
       }}
@@ -446,7 +502,7 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        marginBottom: isExpanded ? '12px' : '0'
+        marginBottom: '8px'
       }}>
         <span style={{ 
           fontWeight: 500, 
@@ -462,6 +518,20 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
         }}>
           {planet.distance} ly
         </span>
+      </div>
+
+      {/* Classification Status Badge */}
+      <div style={{ 
+        padding: '4px 8px',
+        backgroundColor: classificationInfo.bgColor,
+        borderRadius: '4px',
+        textAlign: 'center',
+        color: classificationInfo.color,
+        fontSize: '12px',
+        fontWeight: 500,
+        marginBottom: isExpanded ? '8px' : '0'
+      }}>
+        {classificationInfo.text}
       </div>
 
       {/* Expanded Details */}
@@ -571,35 +641,37 @@ const MilkyWayGalaxy = () => {
   const [filters, setFilters] = useState(INITIAL_FILTERS);
 
   const [isPlanetListOpen, setIsPlanetListOpen] = useState(false);
-const [selectedPlanet, setSelectedPlanet] = useState(null);
-// Sample planet data - replace with your actual JSON data
-// Process the imported JSON data to match the expected format
-// Process the imported JSON data to match the expected format
-const [planets] = useState(() => {
-  return planetsData
-    .filter(planet => planet.planet_name) // Filter out planets without names
-    .map((planet, index) => ({
-      id: index + 1,
-      name: planet.planet_name || 'Unknown Planet', // Fallback for safety
-      distance: Math.round(Math.random() * 2000 + 100), // Since distance isn't in your JSON, using placeholder
-      radius: planet.planet_radius || 0,
-      transitDepth: planet.transit_depth || 0,
-      transitDuration: planet.transit_duration || 0,
-      insolationFlux: planet.insolation_flux || 0,
-      eqTemp: planet.eq_temperature || 0,
-      stellarTemp: planet.stellar_temp || 0,
-      stellarGravity: planet.stellar_gravity || 0,
-      orbitalPeriod: planet.orbital_period || 0,
-      stellarRadius: planet.stellar_radius || 0,
-      source: planet.source || 'Unknown',
-      habitableZone: planet.insolation_flux > 0.2 && planet.insolation_flux < 2.0 && 
-                     planet.eq_temperature > 200 && planet.eq_temperature < 350 // Simple habitability calculation
-    }));
-});
+  const [selectedPlanet, setSelectedPlanet] = useState(null);
+  // Sample planet data - replace with your actual JSON data
+  // Process the imported JSON data to match the expected format
+  // Process the imported JSON data to match the expected format
+  const [planets] = useState(() => {
+    return planetsData
+      .filter(planet => planet.planet_name) // Filter out planets without names
+      .map((planet, index) => ({
+        id: index + 1,
+        name: planet.planet_name || 'Unknown Planet',
+        distance: Math.round(Math.random() * 2000 + 100),
+        radius: planet.planet_radius || 0,
+        transitDepth: planet.transit_depth || 0,
+        transitDuration: planet.transit_duration || 0,
+        insolationFlux: planet.insolation_flux || 0,
+        eqTemp: planet.eq_temperature || 0,
+        stellarTemp: planet.stellar_temp || 0,
+        stellarGravity: planet.stellar_gravity || 0,
+        orbitalPeriod: planet.orbital_period || 0,
+        stellarRadius: planet.stellar_radius || 0,
+        source: planet.source || 'Unknown',
+        classification: planet.Predicted, // Add the classification from Predicted field
+        actual: planet.Actual, // Also store the actual value if needed
+        habitableZone: planet.insolation_flux > 0.2 && planet.insolation_flux < 2.0 && 
+                      planet.eq_temperature > 200 && planet.eq_temperature < 350
+      }));
+  });
 
-const handlePlanetSelect = useCallback((planet) => {
-  setSelectedPlanet(planet);
-}, []);
+  const handlePlanetSelect = useCallback((planet) => {
+    setSelectedPlanet(planet);
+  }, []);
 
   const handleFilterChange = useCallback((key, newCurrent) => {
     setFilters(prevFilters => ({
