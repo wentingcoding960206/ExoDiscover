@@ -41,16 +41,18 @@ const GALAXY_CONFIG = {
     stars: 0.00005,
   }
 };
+const planetMarkers = new Map(); // Store planet id -> marker mesh
+const planetPositions = new Map(); // Store planet id -> position in galaxy
 
 // --- Initial Filter State ---
 const INITIAL_FILTERS = {
-  planetRadius: { label: "Planet Radius", unit: "Earth Radii", min: 0.27, max: 297, step: 0.1, current: { min: 0.27, max: 297 } },
-  transitDepth: { label: "Transit Depth", unit: "PPM", min: 11.2, max: 225793, step: 1, current: { min: 11.2, max: 225793 } },
-  transitDuration: { label: "Transit Duration", unit: "Hours", min: 0.101, max: 30, step: 0.1, current: { min: 0.101, max: 30 } },
-  insolationFlux: { label: "Ins. Flux", unit: "Earth Flux", min: 0, max: 280833, step: 1, current: { min: 0, max: 280833 } },
-  eqTemp: { label: "Eq. Temp", unit: "Kelvin", min: 37, max: 6413, step: 1, current: { min: 37, max: 6413 } },
-  stellarTemp: { label: "Stellar Temp", unit: "Kelvin", min: 2703, max: 50000, step: 1, current: { min: 2703, max: 50000 } },
-  stellarGravity: { label: "Stellar Gravity", unit: "log₁₀(cm/s²)", min: 0.1, max: 6, step: 0.01, current: { min: 0.1, max: 6 } },
+  planetRadius: { label: "Planet Radius", unit: "Earth Radii", min: 0, max: 300, step: 0.1, current: { min: 0, max: 300 } },
+  transitDepth: { label: "Transit Depth", unit: "PPM", min: 0, max: 227500, step: 1, current: { min: 0, max: 227500 } },
+  transitDuration: { label: "Transit Duration", unit: "Hours", min: 0, max: 30, step: 0.1, current: { min: 0, max: 30 } },
+  insolationFlux: { label: "Ins. Flux", unit: "Earth Flux", min: 0, max: 285000, step: 1, current: { min: 0, max: 285000 } },
+  eqTemp: { label: "Eq. Temp", unit: "Kelvin", min: 0, max: 6500, step: 1, current: { min: 0, max: 6500} },
+  stellarTemp: { label: "Stellar Temp", unit: "Kelvin", min: 0, max: 50000, step: 1, current: { min: 0, max: 50000 } },
+  stellarGravity: { label: "Stellar Gravity", unit: "log₁₀(cm/s²)", min: 0, max: 8, step: 0.01, current: { min: 0, max: 8 } },
 };
 
 
@@ -622,16 +624,60 @@ const CameraInfoDisplay = memo(({ cameraStateRef }) => {
 
   return (
     <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', padding: '10px 15px', borderRadius: '5px', color: 'white', fontSize: '14px', fontFamily: 'monospace' }}>
-      <div>Distance: {info.distance} Light Years</div>
       <div>Rotation (θ): {info.theta}°</div>
       <div>Elevation (φ): {info.phi}°</div>
     </div>
   );
 });
 
+// --- Planet Marker Creation ---
+const createPlanetMarker = () => {
+  // --- MODIFIED: Increased the size of the cube to make it more visible ---
+  const geometry = new THREE.BoxGeometry(20, 20, 20); // Was 8
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffd700, // Golden color
+    emissive: 0xffd700,
+    emissiveIntensity: 2,
+    transparent: true,
+    opacity: 0.9,
+  });
+  const marker = new THREE.Mesh(geometry, material);
+  
+  // --- MODIFIED: Increased the glow size to match the new cube size ---
+  const glowGeometry = new THREE.BoxGeometry(30, 30, 30); // Was 12
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffed4e,
+    transparent: true,
+    opacity: 0.3,
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  marker.add(glow);
+  
+  return marker;
+};
+
+// --- Generate Random Position in Galaxy Arm ---
+const generatePlanetPosition = (planetId) => {
+  // Choose a random arm (0-3)
+  const armIndex = Math.floor(Math.random() * 4);
+  const armOffset = armIndex * Math.PI * 0.5;
+  
+  // Random position along the arm
+  const t = Math.random() * 0.7 + 0.2; // Avoid center and edges
+  const angle = t * Math.PI * 4 + armOffset;
+  const radius = GALAXY_CONFIG.particles.armMinRadius + 
+                 t * (GALAXY_CONFIG.particles.armMaxRadius - GALAXY_CONFIG.particles.armMinRadius);
+  
+  // Add some random offset for natural distribution
+  const randomOffset = 30;
+  const x = Math.cos(angle) * radius + (Math.random() - 0.5) * randomOffset;
+  const z = Math.sin(angle) * radius + (Math.random() - 0.5) * randomOffset;
+  const y = (Math.random() - 0.5) * 20; // Slight vertical offset
+  
+  return new THREE.Vector3(x, y, z);
+};
 
 // --- Main Galaxy Component ---
-
 const MilkyWayGalaxy = () => {
   const mountRef = useRef(null);
   const frameRef = useRef(null);
@@ -649,29 +695,54 @@ const MilkyWayGalaxy = () => {
     return planetsData
       .filter(planet => planet.planet_name) // Filter out planets without names
       .map((planet, index) => ({
-        id: index + 1,
+        id: planet.planet_id || index + 1, // Use planet_id, fallback to index
         name: planet.planet_name || 'Unknown Planet',
         distance: Math.round(Math.random() * 2000 + 100),
+        orbitalPeriod: planet.orbital_period || 0,
         radius: planet.planet_radius || 0,
         transitDepth: planet.transit_depth || 0,
         transitDuration: planet.transit_duration || 0,
-        insolationFlux: planet.insolation_flux || 0,
         eqTemp: planet.eq_temperature || 0,
+        insolationFlux: planet.insolation_flux || 0,
         stellarTemp: planet.stellar_temp || 0,
-        stellarGravity: planet.stellar_gravity || 0,
-        orbitalPeriod: planet.orbital_period || 0,
         stellarRadius: planet.stellar_radius || 0,
+        stellarGravity: planet.stellar_gravity || 0,
         source: planet.source || 'Unknown',
-        classification: planet.Predicted, // Add the classification from Predicted field
-        actual: planet.Actual, // Also store the actual value if needed
+        // --- UPDATED MAPPING ---
+        classification: planet.final_prediction, // Map the final_prediction field to classification
+        actual: planet.actual_label, // Map actual_label to actual
+        // --- END UPDATED MAPPING ---
         habitableZone: planet.insolation_flux > 0.2 && planet.insolation_flux < 2.0 && 
                       planet.eq_temperature > 200 && planet.eq_temperature < 350
       }));
   });
 
-  const handlePlanetSelect = useCallback((planet) => {
+ const handlePlanetSelect = useCallback((planet) => {
     setSelectedPlanet(planet);
-  }, []);
+
+    if (cameraRef.current && planet) {
+        const { state } = cameraRef.current;
+
+        // Get or generate the planet's position in the galaxy arm
+        let position;
+        if (!planetPositions.has(planet.id)) {
+            position = generatePlanetPosition(planet.id);
+            planetPositions.set(planet.id, position);
+        } else {
+            position = planetPositions.get(planet.id);
+        }
+
+        // Set the camera to look at the planet's position and zoom in
+        state.targetLookAt = position.clone();
+        state.targetRadius = 100; // Zoom in close to the marker
+        
+        // Calculate the ideal viewing angle to look at the planet from the side
+        const targetThetaRad = Math.atan2(position.z, position.x) + Math.PI / 4; // Add offset for better view
+        state.targetTheta = THREE.MathUtils.radToDeg(targetThetaRad);
+        state.targetPhi = 75; // A nice elevated angle
+    }
+}, []);
+
 
   const handleFilterChange = useCallback((key, newCurrent) => {
     setFilters(prevFilters => ({
@@ -687,25 +758,30 @@ const MilkyWayGalaxy = () => {
     if (!cameraRef.current) return;
     const { camera, state } = cameraRef.current;
 
+    // Smoothly interpolate camera position and look-at target
     state.theta += (state.targetTheta - state.theta) * GALAXY_CONFIG.smoothingFactor;
     state.phi += (state.targetPhi - state.phi) * GALAXY_CONFIG.smoothingFactor;
     state.radius += (state.targetRadius - state.radius) * GALAXY_CONFIG.smoothingFactor;
+    state.lookAt.lerp(state.targetLookAt, GALAXY_CONFIG.smoothingFactor);
 
     const radTheta = (state.theta * Math.PI) / 180;
     const radPhi = (state.phi * Math.PI) / 180;
 
-    camera.position.x = state.radius * Math.sin(radPhi) * Math.cos(radTheta);
-    camera.position.y = state.radius * Math.cos(radPhi);
-    camera.position.z = state.radius * Math.sin(radPhi) * Math.sin(radTheta);
-    camera.lookAt(0, 0, 0);
-  }, []);
+    // Calculate new camera position based on spherical coordinates relative to the look-at point
+    camera.position.x = state.lookAt.x + state.radius * Math.sin(radPhi) * Math.cos(radTheta);
+    camera.position.y = state.lookAt.y + state.radius * Math.cos(radPhi);
+    camera.position.z = state.lookAt.z + state.radius * Math.sin(radPhi) * Math.sin(radTheta);
+    
+    // Point the camera to the interpolated look-at position
+    camera.lookAt(state.lookAt);
+}, []);
+
 
   useEffect(() => {
     const mountNode = mountRef.current;
     if (!mountNode) return;
-
-    // ... (rest of the THREE.js setup code remains unchanged)
     
+    // --- MODIFIED: Added lookAt and targetLookAt to camera state ---
     const cameraState = {
       radius: GALAXY_CONFIG.camera.initialRadius,
       theta: 0,
@@ -716,6 +792,8 @@ const MilkyWayGalaxy = () => {
       isDragging: false,
       previousMouseX: 0,
       previousMouseY: 0,
+      lookAt: new THREE.Vector3(0, 0, 0), // Current look-at point
+      targetLookAt: new THREE.Vector3(0, 0, 0), // Target look-at point
     };
 
     const scene = new THREE.Scene();
@@ -728,6 +806,26 @@ const MilkyWayGalaxy = () => {
     mountNode.appendChild(renderer.domElement);
     const galaxyGroup = new THREE.Group();
     scene.add(galaxyGroup);
+
+    // --- Create Planet Markers ---
+    const planetsGroupRef = new THREE.Group();
+    galaxyGroup.add(planetsGroupRef);
+
+    // Initialize markers for all planets
+    planets.forEach(planet => {
+      if (!planetPositions.has(planet.id)) {
+        const position = generatePlanetPosition(planet.id);
+        planetPositions.set(planet.id, position);
+      }
+      
+      const marker = createPlanetMarker();
+      const position = planetPositions.get(planet.id);
+      marker.position.copy(position);
+      marker.visible = false; // Hidden by default
+      
+      planetMarkers.set(planet.id, marker);
+      planetsGroupRef.add(marker);
+    });
     
     // --- Scene Objects ---
 
@@ -953,18 +1051,40 @@ const MilkyWayGalaxy = () => {
     updateCameraPosition();
 
     const animate = () => {
-      frameRef.current = requestAnimationFrame(animate);
-      updateCameraPosition();
-      galaxyGroup.rotation.y += GALAXY_CONFIG.rotation.galaxy;
-      stars.rotation.y += GALAXY_CONFIG.rotation.stars;
+        frameRef.current = requestAnimationFrame(animate);
+        updateCameraPosition();
+        galaxyGroup.rotation.y += GALAXY_CONFIG.rotation.galaxy;
+        stars.rotation.y += GALAXY_CONFIG.rotation.stars;
 
-      const time = Date.now() * 0.001;
-      const coreScale = 1 + Math.sin(time) * 0.1;
-      coreGlow.scale.set(coreScale, coreScale, coreScale);
-      const outerScale = 1 + Math.sin(time * 0.8) * 0.05;
-      outerGlow.scale.set(outerScale, outerScale, outerScale);
+        const time = Date.now() * 0.001;
 
-      renderer.render(scene, camera);
+        // Update planet marker visibility and animation
+        if (selectedPlanet && planetMarkers.has(selectedPlanet.id)) {
+            // Show only the selected planet's marker
+            planetMarkers.forEach((marker, id) => {
+                marker.visible = id === selectedPlanet.id;
+
+                if (id === selectedPlanet.id) {
+                    // Animate the selected marker to make it noticeable
+                    const pulseScale = 1 + Math.sin(time * 3) * 0.2;
+                    marker.scale.set(pulseScale, pulseScale, pulseScale);
+                    marker.rotation.y += 0.02;
+                    marker.rotation.x += 0.01;
+                }
+            });
+        } else {
+            // Hide all markers if no planet is selected
+            planetMarkers.forEach(marker => {
+                marker.visible = false;
+            });
+        }
+
+        const coreScale = 1 + Math.sin(time) * 0.1;
+        coreGlow.scale.set(coreScale, coreScale, coreScale);
+        const outerScale = 1 + Math.sin(time * 0.8) * 0.05;
+        outerGlow.scale.set(outerScale, outerScale, outerScale);
+
+        renderer.render(scene, camera);
     };
     animate();
 
@@ -986,6 +1106,9 @@ const MilkyWayGalaxy = () => {
       window.removeEventListener('mouseup', handleMouseUp);
       mountNode.removeEventListener('wheel', handleWheel);
       window.removeEventListener('resize', handleResize);
+
+      planetMarkers.clear();
+      planetPositions.clear();
 
       scene.traverse(object => {
           if (object.geometry) object.geometry.dispose();
@@ -1033,6 +1156,34 @@ const MilkyWayGalaxy = () => {
             }}
           >
           🔭 Filters
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedPlanet(null);
+              if (cameraRef.current) {
+                const { state } = cameraRef.current;
+                // Reset camera to initial position and look at the center
+                state.targetRadius = GALAXY_CONFIG.camera.initialRadius;
+                state.targetTheta = 0;
+                state.targetPhi = GALAXY_CONFIG.camera.initialPhi;
+                state.targetLookAt = new THREE.Vector3(0, 0, 0); // --- MODIFIED: Reset look-at target ---
+              }
+            }}
+            style={{
+              pointerEvents: 'auto',
+              padding: '10px 15px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              backgroundColor: '#374151',
+              color: 'white',
+              zIndex: 20,
+              marginLeft: '10px',
+              transition: 'background-color 0.3s ease'
+            }}
+          >
+            🏠 Reset View
           </button>
           
           <button
