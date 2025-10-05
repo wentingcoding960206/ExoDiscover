@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, memo } from 'react';
 import * as THREE from 'three';
-//import planetsData from './planets.json';
+import planetsData from './predictions.json';
 
 // --- Configuration Object ---
 const GALAXY_CONFIG = {
@@ -292,13 +292,13 @@ const FilterDashboard = memo(({ isOpen, filters, onFilterChange }) => {
   );
 });
 
-// --- Planet List Component ---
 const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredPlanets = planets.filter(planet => 
-    planet.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPlanets = planets.filter(planet => {
+    if (!planet.name) return false;
+    return planet.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div style={{
@@ -339,6 +339,16 @@ const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) =>
             boxShadow: 'inset 0 0 4px rgba(59,130,246,0.2)',
           }}
         />
+      </div>
+
+      {/* Planet Counter - ADD THIS HERE */}
+      <div style={{ 
+        marginBottom: '15px', 
+        textAlign: 'center',
+        color: '#93c5fd',
+        fontSize: '13px'
+      }}>
+        Showing {filteredPlanets.length} of {planets.length} planets
       </div>
 
       {/* Planet List */}
@@ -425,13 +435,16 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
           lineHeight: '1.6',
           color: '#E0F2FE'
         }}>
+          <InfoRow label="Orbital Period" value={`${planet.orbitalPeriod?.toFixed(2)} days`} />
           <InfoRow label="Radius" value={`${planet.radius} Earth Radii`} />
           <InfoRow label="Transit Depth" value={`${planet.transitDepth} PPM`} />
-          <InfoRow label="Transit Duration" value={`${planet.transitDuration} Hours`} />
-          <InfoRow label="Ins. Flux" value={`${planet.insolationFlux} Earth Flux`} />
-          <InfoRow label="Eq. Temp" value={`${planet.eqTemp} K`} />
-          <InfoRow label="Stellar Temp" value={`${planet.stellarTemp} K`} />
-          <InfoRow label="Stellar Gravity" value={`${planet.stellarGravity} log₁₀(cm/s²)`} />
+          <InfoRow label="Transit Duration" value={`${planet.transitDuration?.toFixed(2)} Hours`} />
+          <InfoRow label="Ins. Flux" value={`${planet.insolationFlux?.toFixed(2)} Earth Flux`} />
+          <InfoRow label="Eq. Temp" value={`${Math.round(planet.eqTemp)} K`} />
+          <InfoRow label="Stellar Temp" value={`${Math.round(planet.stellarTemp)} K`} />
+          <InfoRow label="Stellar Gravity" value={`${planet.stellarGravity?.toFixed(3)} log₁₀(cm/s²)`} />
+          <InfoRow label="Stellar Radius" value={`${planet.stellarRadius?.toFixed(3)} Solar Radii`} />
+          <InfoRow label="Source" value={planet.source} />
           {planet.habitableZone && (
             <div style={{ 
               marginTop: '8px',
@@ -441,7 +454,7 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
               textAlign: 'center',
               color: '#86efac'
             }}>
-              ✨ Habitable Zone
+              ✨ Potentially Habitable
             </div>
           )}
         </div>
@@ -522,35 +535,29 @@ const MilkyWayGalaxy = () => {
   const [isPlanetListOpen, setIsPlanetListOpen] = useState(false);
 const [selectedPlanet, setSelectedPlanet] = useState(null);
 // Sample planet data - replace with your actual JSON data
-const [planets] = useState([
-  {
-    id: 1,
-    name: "Kepler-452b",
-    distance: 1400,
-    radius: 1.63,
-    transitDepth: 199,
-    transitDuration: 10.5,
-    insolationFlux: 1.11,
-    eqTemp: 265,
-    stellarTemp: 5757,
-    stellarGravity: 4.32,
-    habitableZone: true
-  },
-  {
-    id: 2,
-    name: "Proxima Centauri b",
-    distance: 4.24,
-    radius: 1.07,
-    transitDepth: 150,
-    transitDuration: 8.2,
-    insolationFlux: 0.65,
-    eqTemp: 234,
-    stellarTemp: 3050,
-    stellarGravity: 4.8,
-    habitableZone: true
-  },
-  // Add more planets from your JSON here
-]);
+// Process the imported JSON data to match the expected format
+// Process the imported JSON data to match the expected format
+const [planets] = useState(() => {
+  return planetsData
+    .filter(planet => planet.planet_name) // Filter out planets without names
+    .map((planet, index) => ({
+      id: index + 1,
+      name: planet.planet_name || 'Unknown Planet', // Fallback for safety
+      distance: Math.round(Math.random() * 2000 + 100), // Since distance isn't in your JSON, using placeholder
+      radius: planet.planet_radius || 0,
+      transitDepth: planet.transit_depth || 0,
+      transitDuration: planet.transit_duration || 0,
+      insolationFlux: planet.insolation_flux || 0,
+      eqTemp: planet.eq_temperature || 0,
+      stellarTemp: planet.stellar_temp || 0,
+      stellarGravity: planet.stellar_gravity || 0,
+      orbitalPeriod: planet.orbital_period || 0,
+      stellarRadius: planet.stellar_radius || 0,
+      source: planet.source || 'Unknown',
+      habitableZone: planet.insolation_flux > 0.2 && planet.insolation_flux < 2.0 && 
+                     planet.eq_temperature > 200 && planet.eq_temperature < 350 // Simple habitability calculation
+    }));
+});
 
 const handlePlanetSelect = useCallback((planet) => {
   setSelectedPlanet(planet);
