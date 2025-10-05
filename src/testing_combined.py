@@ -20,34 +20,36 @@ def main(model_path, data_path, target_column, output_path="predictions.csv"):
 
     # Separate features and target
     X = data.drop(columns=[target_column])
-    
-    # Keep planet_id and planet_name for output but drop them from features
+    y = data[target_column]
+
+    # Keep a copy of full original data for export
+    full_data = data.copy()
+
+    # Keep planet_id and planet_name for output if available
     output_cols = []
     for col in ["planet_id", "planet_name"]:
         if col in X.columns:
             output_cols.append(col)
-    
-    # Identify non-numeric columns to drop for XGBoost
+
+    # Drop non-numeric columns (except planet_id/planet_name)
     non_numeric = X.select_dtypes(exclude=[np.number]).columns.tolist()
     for col in output_cols:
         if col in non_numeric:
             non_numeric.remove(col)  # keep for output
     if non_numeric:
-        print(f"⚠️ Dropping non-numeric columns for XGBoost: {non_numeric}")
+        print(f"⚠️ Dropping non-numeric columns for model input: {non_numeric}")
         X = X.drop(columns=non_numeric)
-    # Drop planet_id/planet_name from features if they are still in X
-    X = X.drop(columns=[c for c in output_cols if c in X.columns])
+    # Drop planet_id/planet_name from X if still in
+    X = X.drop(columns=[col for col in output_cols if col in X.columns])
 
-    y = data[target_column]
-
-    # Handle NaN values
+    # Fill missing values
     X = X.fillna(0)
     y = y.fillna(0)
 
     # Predict
     y_pred = model.predict(X)
 
-    # Detect if classification or regression
+    # Determine classification vs regression
     is_classification = len(np.unique(y)) <= 20 and np.all(np.mod(y, 1) == 0)
     if is_classification:
         y = y.astype(int)
@@ -58,19 +60,16 @@ def main(model_path, data_path, target_column, output_path="predictions.csv"):
         mse = mean_squared_error(y, y_pred)
         print(f"📉 Mean Squared Error: {mse:.4f}")
 
-    # --- Save predictions with planet_id and planet_name ---
-    output_df = pd.DataFrame()
-    for col in output_cols:
-        output_df[col] = data[col] if col in data.columns else np.arange(len(data))
-    
-    output_df["true"] = y
-    output_df["pred"] = y_pred
+    # Add predictions to original full dataset
+    full_data["true"] = y
+    full_data["pred"] = y_pred
 
-    output_df.to_csv(output_path, index=False)
+    # Export full data with predictions
+    full_data.to_csv(output_path, index=False)
     print(f"💾 Predictions saved to '{output_path}'")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test a trained XGBoost model with a dataset.")
+    parser = argparse.ArgumentParser(description="Test a trained XGBoost or sklearn model with a dataset.")
     parser.add_argument("--model", type=str, required=True, help="Path to the .pkl model file.")
     parser.add_argument("--data", type=str, required=True, help="Path to the dataset CSV file.")
     parser.add_argument("--target", type=str, required=True, help="Target column name in dataset.")
