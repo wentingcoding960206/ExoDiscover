@@ -518,7 +518,6 @@ const PlanetCard = memo(({ planet, isSelected, onClick }) => {
           opacity: 0.7,
           color: '#93c5fd'
         }}>
-          {planet.distance} ly
         </span>
       </div>
 
