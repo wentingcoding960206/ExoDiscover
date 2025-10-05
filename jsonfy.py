@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
-csv_path = Path("predictions.csv")
-json_path = Path("predictions.json")
+csv_path = Path("merged_predictions.csv")
+json_path = Path("merged_predictions.json")
 
 if csv_path.exists():
     df = pd.read_csv(csv_path)
