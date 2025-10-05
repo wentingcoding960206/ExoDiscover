@@ -2,189 +2,118 @@ import pandas as pd
 import numpy as np
 
 def load_nasa_csv(filepath):
-    """Load NASA CSV files that have comment headers"""
+    """Load NASA CSV files that have comment headers."""
     try:
-        # Try reading with comment character for NASA files
         return pd.read_csv(filepath, comment='#')
     except:
         try:
-            # If that fails, try reading without header and find data start
             with open(filepath, 'r') as f:
                 lines = f.readlines()
-            
-            # Find where data starts (first line that doesn't start with # and has multiple columns)
-            data_start = 0
-            for i, line in enumerate(lines):
-                if not line.strip().startswith('#') and len(line.split(',')) > 1:
-                    data_start = i
-                    break
-            
-            # Read with skiprows
+            data_start = next(
+                (i for i, line in enumerate(lines)
+                 if not line.strip().startswith('#') and len(line.split(',')) > 1),
+                0
+            )
             return pd.read_csv(filepath, skiprows=data_start, comment='#')
-        except:
-            # Last resort: read manually
-            print(f"Warning: Could not read {filepath} with standard methods")
+        except Exception as e:
+            print(f"⚠️ Could not read {filepath}: {e}")
             return pd.DataFrame()
 
-def merge_exoplanet_datasets():
-    """Simple script to merge Kepler, K2, and TESS datasets including planet names"""
-    
-    print("🪐 Loading and merging exoplanet datasets...")
-    
-    # Load datasets with proper NASA formatting
-    kepler_df = load_nasa_csv('nasa_data/kepler.csv')
-    k2_df = load_nasa_csv('nasa_data/k2.csv') 
-    tess_df = load_nasa_csv('nasa_data/tess.csv')
-    
-    print(f"Loaded - Kepler: {len(kepler_df)} rows, {len(kepler_df.columns)} cols")
-    print(f"Loaded - K2: {len(k2_df)} rows, {len(k2_df.columns)} cols") 
-    print(f"Loaded - TESS: {len(tess_df)} rows, {len(tess_df.columns)} cols")
-    
-    # Debug: Show available columns
-    print("\n🔍 Kepler columns:", list(kepler_df.columns) if len(kepler_df.columns) > 0 else "No columns found")
-    print("🔍 K2 columns:", list(k2_df.columns) if len(k2_df.columns) > 0 else "No columns found")
-    print("🔍 TESS columns:", list(tess_df.columns) if len(tess_df.columns) > 0 else "No columns found")
-    
-    # Initialize empty DataFrames
+def clean_and_merge_exoplanets():
+    """Load, clean, and merge Kepler, K2, and TESS datasets into a clean numeric format."""
+    print("🪐 Loading datasets...")
+    kepler_df = load_nasa_csv('data/kepler.csv')
+    k2_df = load_nasa_csv('data/k2.csv')
+    tess_df = load_nasa_csv('data/tess.csv')
+
+    # --- Kepler ---
     kepler_clean = pd.DataFrame()
-    k2_clean = pd.DataFrame()
-    tess_clean = pd.DataFrame()
-    
-    # Process Kepler data - only if we have data
-    if len(kepler_df) > 0:
-        # Planet names for Kepler
-        if 'kepler_name' in kepler_df.columns:
-            kepler_clean['planet_name'] = kepler_df['kepler_name']
-        elif 'kepoi_name' in kepler_df.columns:
-            kepler_clean['planet_name'] = kepler_df['kepoi_name']
-        elif 'kepid' in kepler_df.columns:
-            kepler_clean['planet_name'] = 'KIC ' + kepler_df['kepid'].astype(str)
-        
-        # Scientific features
-        if 'koi_period' in kepler_df.columns:
-            kepler_clean['orbital_period'] = kepler_df['koi_period']
-        if 'koi_prad' in kepler_df.columns:
-            kepler_clean['planet_radius'] = kepler_df['koi_prad']
-        if 'koi_depth' in kepler_df.columns:
-            kepler_clean['transit_depth'] = kepler_df['koi_depth']
-        if 'koi_duration' in kepler_df.columns:
-            kepler_clean['transit_duration'] = kepler_df['koi_duration']
-        if 'koi_teq' in kepler_df.columns:
-            kepler_clean['eq_temperature'] = kepler_df['koi_teq']
-        if 'koi_insol' in kepler_df.columns:
-            kepler_clean['insolation_flux'] = kepler_df['koi_insol']
-        if 'koi_steff' in kepler_df.columns:
-            kepler_clean['stellar_temp'] = kepler_df['koi_steff']
-        if 'koi_srad' in kepler_df.columns:
-            kepler_clean['stellar_radius'] = kepler_df['koi_srad']
-        if 'koi_slogg' in kepler_df.columns:
-            kepler_clean['stellar_gravity'] = kepler_df['koi_slogg']
-        
-        # Add Kepler target and source
-        if 'koi_disposition' in kepler_df.columns:
+    if not kepler_df.empty:
+        kepler_clean['planet_name'] = kepler_df.get('kepler_name', kepler_df.get('kepoi_name', ''))
+        kepler_clean['planet_id'] = pd.to_numeric(kepler_df['kepid'], errors='coerce')
+        kepler_clean['orbital_period'] = kepler_df.get('koi_period')
+        kepler_clean['planet_radius'] = kepler_df.get('koi_prad')
+        kepler_clean['transit_depth'] = kepler_df.get('koi_depth')
+        kepler_clean['transit_duration'] = kepler_df.get('koi_duration')
+        kepler_clean['eq_temperature'] = kepler_df.get('koi_teq')
+        kepler_clean['insolation_flux'] = kepler_df.get('koi_insol')
+        kepler_clean['stellar_temp'] = kepler_df.get('koi_steff')
+        kepler_clean['stellar_radius'] = kepler_df.get('koi_srad')
+        kepler_clean['stellar_gravity'] = kepler_df.get('koi_slogg')
+        if 'koi_disposition' in kepler_df:
             disposition_map = {'CONFIRMED': 2, 'CANDIDATE': 1, 'FALSE POSITIVE': 0}
             kepler_clean['disposition'] = kepler_df['koi_disposition'].map(disposition_map)
         kepler_clean['source'] = 'Kepler'
-    
-    # Process K2 data
-    if len(k2_df) > 0:
-        # Planet names for K2
-        if 'pl_name' in k2_df.columns:
-            k2_clean['planet_name'] = k2_df['pl_name']
-        elif 'hostname' in k2_df.columns:
-            k2_clean['planet_name'] = k2_df['hostname'] + ' b'  # Common exoplanet naming
-        
-        # Scientific features
-        if 'pl_orbper' in k2_df.columns:
-            k2_clean['orbital_period'] = k2_df['pl_orbper']
-        if 'pl_rade' in k2_df.columns:
-            k2_clean['planet_radius'] = k2_df['pl_rade']
-        if 'pl_eqt' in k2_df.columns:
-            k2_clean['eq_temperature'] = k2_df['pl_eqt']
-        if 'pl_insol' in k2_df.columns:
-            k2_clean['insolation_flux'] = k2_df['pl_insol']
-        if 'st_teff' in k2_df.columns:
-            k2_clean['stellar_temp'] = k2_df['st_teff']
-        if 'st_rad' in k2_df.columns:
-            k2_clean['stellar_radius'] = k2_df['st_rad']
-        if 'st_logg' in k2_df.columns:
-            k2_clean['stellar_gravity'] = k2_df['st_logg']
-        
-        # Add K2 target and source
-        if 'disposition' in k2_df.columns:
+
+    # --- K2 ---
+    k2_clean = pd.DataFrame()
+    if not k2_df.empty:
+        k2_clean['planet_name'] = k2_df.get('pl_name', k2_df.get('hostname', '') + ' b')
+        k2_clean['planet_id'] = (k2_df.get('hostname', '') + k2_df.get('disc_year', '').astype(str)) \
+                                    .apply(lambda x: abs(hash(x)) % 10**10)
+        k2_clean['orbital_period'] = k2_df.get('pl_orbper')
+        k2_clean['planet_radius'] = k2_df.get('pl_rade')
+        k2_clean['eq_temperature'] = k2_df.get('pl_eqt')
+        k2_clean['insolation_flux'] = k2_df.get('pl_insol')
+        k2_clean['stellar_temp'] = k2_df.get('st_teff')
+        k2_clean['stellar_radius'] = k2_df.get('st_rad')
+        k2_clean['stellar_gravity'] = k2_df.get('st_logg')
+        if 'disposition' in k2_df:
             disposition_map = {'Confirmed': 2, 'Candidate': 1, 'False Positive': 0}
             k2_clean['disposition'] = k2_df['disposition'].map(disposition_map)
         k2_clean['source'] = 'K2'
-    
-    # Process TESS data
-    if len(tess_df) > 0:
-        # Planet names for TESS
-        if 'toi' in tess_df.columns:
+
+    # --- TESS ---
+    tess_clean = pd.DataFrame()
+    if not tess_df.empty:
+        if 'toi' in tess_df:
             tess_clean['planet_name'] = 'TOI ' + tess_df['toi'].astype(str)
-        elif 'tid' in tess_df.columns:
+            tess_clean['planet_id'] = pd.to_numeric(tess_df['toi'], errors='coerce')
+        elif 'tid' in tess_df:
             tess_clean['planet_name'] = 'TIC ' + tess_df['tid'].astype(str)
-        
-        # Scientific features
-        if 'pl_orbper' in tess_df.columns:
-            tess_clean['orbital_period'] = tess_df['pl_orbper']
-        if 'pl_rade' in tess_df.columns:
-            tess_clean['planet_radius'] = tess_df['pl_rade']
-        if 'pl_trandep' in tess_df.columns:
-            tess_clean['transit_depth'] = tess_df['pl_trandep']
-        if 'pl_trandurh' in tess_df.columns:
-            tess_clean['transit_duration'] = tess_df['pl_trandurh']
-        if 'pl_eqt' in tess_df.columns:
-            tess_clean['eq_temperature'] = tess_df['pl_eqt']
-        if 'pl_insol' in tess_df.columns:
-            tess_clean['insolation_flux'] = tess_df['pl_insol']
-        if 'st_teff' in tess_df.columns:
-            tess_clean['stellar_temp'] = tess_df['st_teff']
-        if 'st_rad' in tess_df.columns:
-            tess_clean['stellar_radius'] = tess_df['st_rad']
-        if 'st_logg' in tess_df.columns:
-            tess_clean['stellar_gravity'] = tess_df['st_logg']
-        
-        # Add TESS target and source
-        if 'tfopwg_disp' in tess_df.columns:
+            tess_clean['planet_id'] = pd.to_numeric(tess_df['tid'], errors='coerce')
+        else:
+            tess_clean['planet_name'] = np.nan
+            tess_clean['planet_id'] = np.nan
+        tess_clean['orbital_period'] = tess_df.get('pl_orbper')
+        tess_clean['planet_radius'] = tess_df.get('pl_rade')
+        tess_clean['transit_depth'] = tess_df.get('pl_trandep')
+        tess_clean['transit_duration'] = tess_df.get('pl_trandurh')
+        tess_clean['eq_temperature'] = tess_df.get('pl_eqt')
+        tess_clean['insolation_flux'] = tess_df.get('pl_insol')
+        tess_clean['stellar_temp'] = tess_df.get('st_teff')
+        tess_clean['stellar_radius'] = tess_df.get('st_rad')
+        tess_clean['stellar_gravity'] = tess_df.get('st_logg')
+        if 'tfopwg_disp' in tess_df:
             disposition_map = {'CP': 2, 'KP': 1, 'PC': 1, 'FP': 0}
             tess_clean['disposition'] = tess_df['tfopwg_disp'].map(disposition_map)
         tess_clean['source'] = 'TESS'
-    
-    # Merge all datasets
-    all_dfs = []
-    if len(kepler_clean) > 0:
-        all_dfs.append(kepler_clean)
-    if len(k2_clean) > 0:
-        all_dfs.append(k2_clean) 
-    if len(tess_clean) > 0:
-        all_dfs.append(tess_clean)
-    
+
+    # --- Merge all ---
+    all_dfs = [df for df in [kepler_clean, k2_clean, tess_clean] if not df.empty]
     if not all_dfs:
-        print("❌ No data could be loaded from any dataset!")
+        print("❌ No datasets loaded!")
         return None
-    
+
     merged_df = pd.concat(all_dfs, ignore_index=True)
-    
-    print(f"✅ Merged dataset size: {len(merged_df)}")
-    print(f"📊 Sources: {merged_df['source'].value_counts().to_dict()}")
-    
-    # Basic info
-    print("\n📈 Dataset Info:")
-    print(f"Total rows: {len(merged_df)}")
-    print(f"Total columns: {len(merged_df.columns)}")
-    print(f"Columns: {list(merged_df.columns)}")
-    
-    if 'disposition' in merged_df.columns:
-        print(f"Target distribution: {merged_df['disposition'].value_counts().sort_index()}")
-    
-    if 'planet_name' in merged_df.columns:
-        print(f"Sample planet names: {merged_df['planet_name'].head(5).tolist()}")
-    
-    # Save merged dataset
-    merged_df.to_csv('merged_exoplanets.csv', index=False)
-    print(f"💾 Saved to 'merged_exoplanets.csv'")
+
+    # --- Cleaning ---
+    merged_df.dropna(subset=['planet_id', 'orbital_period'], inplace=True)
+    merged_df.reset_index(drop=True, inplace=True)
+
+    # Ensure numeric types
+    numeric_cols = ['planet_id', 'orbital_period', 'planet_radius', 'transit_depth',
+                    'transit_duration', 'eq_temperature', 'insolation_flux',
+                    'stellar_temp', 'stellar_radius', 'stellar_gravity', 'disposition']
+    for col in numeric_cols:
+        if col in merged_df.columns:
+            merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce')
+
+    # Save clean dataset
+    merged_df.to_csv('data/merged_cleaned.csv', index=False)
+    print(f"✅ Clean merged dataset saved: {len(merged_df)} rows | columns: {list(merged_df.columns)}")
     
     return merged_df
 
 if __name__ == "__main__":
-    merged_data = merge_exoplanet_datasets()
+    clean_and_merge_exoplanets()
