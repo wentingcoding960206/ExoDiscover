@@ -292,12 +292,31 @@ const FilterDashboard = memo(({ isOpen, filters, onFilterChange }) => {
   );
 });
 
-const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) => {
+// --- Planet List Component ---
+const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect, filters }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredPlanets = planets.filter(planet => {
     if (!planet.name) return false;
-    return planet.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Apply search filter
+    if (!planet.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+    
+    // Apply range filters
+    const { planetRadius, transitDepth, transitDuration, insolationFlux, eqTemp, stellarTemp, stellarGravity } = filters;
+    
+    // Check each filter
+    if (planet.radius < planetRadius.current.min || planet.radius > planetRadius.current.max) return false;
+    if (planet.transitDepth < transitDepth.current.min || planet.transitDepth > transitDepth.current.max) return false;
+    if (planet.transitDuration < transitDuration.current.min || planet.transitDuration > transitDuration.current.max) return false;
+    if (planet.insolationFlux < insolationFlux.current.min || planet.insolationFlux > insolationFlux.current.max) return false;
+    if (planet.eqTemp < eqTemp.current.min || planet.eqTemp > eqTemp.current.max) return false;
+    if (planet.stellarTemp < stellarTemp.current.min || planet.stellarTemp > stellarTemp.current.max) return false;
+    if (planet.stellarGravity < stellarGravity.current.min || planet.stellarGravity > stellarGravity.current.max) return false;
+    
+    return true;
   });
 
   return (
@@ -341,7 +360,7 @@ const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) =>
         />
       </div>
 
-      {/* Planet Counter - ADD THIS HERE */}
+      {/* Planet Counter */}
       <div style={{ 
         marginBottom: '15px', 
         textAlign: 'center',
@@ -349,18 +368,37 @@ const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) =>
         fontSize: '13px'
       }}>
         Showing {filteredPlanets.length} of {planets.length} planets
+        {filteredPlanets.length < planets.length && (
+          <span style={{ display: 'block', fontSize: '11px', opacity: 0.7, marginTop: '4px' }}>
+            (Filtered by active criteria)
+          </span>
+        )}
       </div>
 
       {/* Planet List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {filteredPlanets.map((planet) => (
-          <PlanetCard
-            key={planet.id}
-            planet={planet}
-            isSelected={selectedPlanet?.id === planet.id}
-            onClick={() => onPlanetSelect(planet)}
-          />
-        ))}
+        {filteredPlanets.length > 0 ? (
+          filteredPlanets.map((planet) => (
+            <PlanetCard
+              key={planet.id}
+              planet={planet}
+              isSelected={selectedPlanet?.id === planet.id}
+              onClick={() => onPlanetSelect(planet)}
+            />
+          ))
+        ) : (
+          <div style={{
+            textAlign: 'center',
+            padding: '20px',
+            color: '#93c5fd',
+            opacity: 0.7,
+            fontSize: '14px'
+          }}>
+            No planets match the current filters.
+            <br />
+            Try adjusting the filter ranges.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -902,6 +940,7 @@ const handlePlanetSelect = useCallback((planet) => {
         planets={planets} 
         selectedPlanet={selectedPlanet}
         onPlanetSelect={handlePlanetSelect}
+        filters={filters}
       />
       
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', flexDirection: 'column', padding: '20px', boxSizing: 'border-box' }}>
