@@ -1,0 +1,122 @@
+.container {
+  margin-bottom: 28px;
+  background: linear-gradient(180deg, #0b0c1b 0%, #1a1c3a 100%);
+  padding: 16px;
+  border-radius: 14px;
+  box-shadow: 0 0 20px rgba(0,0,40,0.5);
+  border: 1px solid rgba(59,130,246,0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.container:hover {
+  transform: scale(1.01);
+  box-shadow: 0 0 25px rgba(37,99,235,0.4);
+}
+
+.labelContainer {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #E5E7EB;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.unit {
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.sliderContainer {
+  position: relative;
+  height: 36px;
+}
+
+.track {
+  position: absolute;
+  height: 6px;
+  background: linear-gradient(90deg, #1e293b, #243b55);
+  border-radius: 4px;
+  width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.activeRange {
+  position: absolute;
+  height: 6px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #1e3a8a, #3b82f6, #8b5cf6);
+  top: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 0 10px rgba(59,130,246,0.4);
+  transition: all 0.15s ease-out;
+}
+
+.slider {
+  position: absolute;
+  width: 100%;
+  height: 6px;
+  top: 50%;
+  left: 0;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.slider::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #60a5fa 0%, #1e3a8a 70%);
+  border: 2px solid #93c5fd;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(96,165,250,0.5);
+  transition: all 0.15s ease;
+  margin-top: -7px;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(96,165,250,0.8);
+}
+
+.slider::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #60a5fa 0%, #1e3a8a 70%);
+  border: 2px solid #93c5fd;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(96,165,250,0.5);
+  transition: all 0.15s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(96,165,250,0.8);
+}
+
+.inputGroup {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.inputBox {
+  flex: 1;
+  padding: 6px 8px;
+  background-color: #111827;
+  border: 1px solid #334155;
+  color: #E0F2FE;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: inset 0 0 4px rgba(59,130,246,0.2);
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
