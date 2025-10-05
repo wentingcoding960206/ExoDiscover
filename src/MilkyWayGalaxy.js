@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, memo } from 'react';
 import * as THREE from 'three';
+//import planetsData from './planets.json';
 
 // --- Configuration Object ---
 const GALAXY_CONFIG = {
@@ -291,6 +292,175 @@ const FilterDashboard = memo(({ isOpen, filters, onFilterChange }) => {
   );
 });
 
+// --- Planet List Component ---
+const PlanetList = memo(({ isOpen, planets, selectedPlanet, onPlanetSelect }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const filteredPlanets = planets.filter(planet => 
+    planet.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      width: '25%',
+      maxWidth: '350px',
+      height: '100vh',
+      backgroundColor: 'rgba(10, 10, 20, 0.9)',
+      color: 'white',
+      padding: '20px',
+      boxSizing: 'border-box',
+      fontFamily: 'Arial, sans-serif',
+      transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+      transition: 'transform 0.5s ease-in-out',
+      overflowY: 'auto',
+      zIndex: 10,
+      pointerEvents: 'auto'
+    }}>
+      <h2 style={{ marginTop: '40px', textAlign: 'center', color: "#93c5fd" }}>Exoplanet Catalog</h2>
+      
+      {/* Search Bar */}
+      <div style={{ marginBottom: '20px' }}>
+        <input
+          type="text"
+          placeholder="Search planets..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px',
+            backgroundColor: '#111827',
+            border: '1px solid #334155',
+            color: '#E0F2FE',
+            borderRadius: '6px',
+            fontSize: '14px',
+            boxShadow: 'inset 0 0 4px rgba(59,130,246,0.2)',
+          }}
+        />
+      </div>
+
+      {/* Planet List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {filteredPlanets.map((planet) => (
+          <PlanetCard
+            key={planet.id}
+            planet={planet}
+            isSelected={selectedPlanet?.id === planet.id}
+            onClick={() => onPlanetSelect(planet)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// --- Planet Card Component ---
+const PlanetCard = memo(({ planet, isSelected, onClick }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div
+      style={{
+        background: isSelected 
+          ? 'linear-gradient(180deg, #1e3a8a 0%, #2563eb 100%)'
+          : 'linear-gradient(180deg, #0b0c1b 0%, #1a1c3a 100%)',
+        padding: '12px',
+        borderRadius: '10px',
+        boxShadow: isSelected 
+          ? '0 0 20px rgba(37,99,235,0.6)' 
+          : '0 0 15px rgba(0,0,40,0.5)',
+        border: isSelected 
+          ? '1px solid rgba(96,165,250,0.5)' 
+          : '1px solid rgba(59,130,246,0.2)',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+      }}
+      onClick={() => {
+        onClick();
+        setIsExpanded(!isExpanded);
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.transform = 'scale(1.02)';
+          e.currentTarget.style.boxShadow = '0 0 20px rgba(37,99,235,0.4)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 0 15px rgba(0,0,40,0.5)';
+        }
+      }}
+    >
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: isExpanded ? '12px' : '0'
+      }}>
+        <span style={{ 
+          fontWeight: 500, 
+          fontSize: '15px',
+          color: '#E5E7EB'
+        }}>
+          {planet.name}
+        </span>
+        <span style={{ 
+          fontSize: '12px', 
+          opacity: 0.7,
+          color: '#93c5fd'
+        }}>
+          {planet.distance} ly
+        </span>
+      </div>
+
+      {/* Expanded Details */}
+      {isExpanded && (
+        <div style={{
+          paddingTop: '12px',
+          borderTop: '1px solid rgba(147,197,253,0.2)',
+          fontSize: '13px',
+          lineHeight: '1.6',
+          color: '#E0F2FE'
+        }}>
+          <InfoRow label="Radius" value={`${planet.radius} Earth Radii`} />
+          <InfoRow label="Transit Depth" value={`${planet.transitDepth} PPM`} />
+          <InfoRow label="Transit Duration" value={`${planet.transitDuration} Hours`} />
+          <InfoRow label="Ins. Flux" value={`${planet.insolationFlux} Earth Flux`} />
+          <InfoRow label="Eq. Temp" value={`${planet.eqTemp} K`} />
+          <InfoRow label="Stellar Temp" value={`${planet.stellarTemp} K`} />
+          <InfoRow label="Stellar Gravity" value={`${planet.stellarGravity} log₁₀(cm/s²)`} />
+          {planet.habitableZone && (
+            <div style={{ 
+              marginTop: '8px',
+              padding: '4px 8px',
+              backgroundColor: 'rgba(34,197,94,0.2)',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#86efac'
+            }}>
+              ✨ Habitable Zone
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- Info Row Helper Component ---
+const InfoRow = ({ label, value }) => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'space-between',
+    marginBottom: '4px'
+  }}>
+    <span style={{ opacity: 0.8 }}>{label}:</span>
+    <span style={{ fontWeight: 500 }}>{value}</span>
+  </div>
+);
 
 const NavItem = memo(({ section, activeSection, onClick, children }) => (
   <button
@@ -348,6 +518,43 @@ const MilkyWayGalaxy = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
+
+  const [isPlanetListOpen, setIsPlanetListOpen] = useState(false);
+const [selectedPlanet, setSelectedPlanet] = useState(null);
+// Sample planet data - replace with your actual JSON data
+const [planets] = useState([
+  {
+    id: 1,
+    name: "Kepler-452b",
+    distance: 1400,
+    radius: 1.63,
+    transitDepth: 199,
+    transitDuration: 10.5,
+    insolationFlux: 1.11,
+    eqTemp: 265,
+    stellarTemp: 5757,
+    stellarGravity: 4.32,
+    habitableZone: true
+  },
+  {
+    id: 2,
+    name: "Proxima Centauri b",
+    distance: 4.24,
+    radius: 1.07,
+    transitDepth: 150,
+    transitDuration: 8.2,
+    insolationFlux: 0.65,
+    eqTemp: 234,
+    stellarTemp: 3050,
+    stellarGravity: 4.8,
+    habitableZone: true
+  },
+  // Add more planets from your JSON here
+]);
+
+const handlePlanetSelect = useCallback((planet) => {
+  setSelectedPlanet(planet);
+}, []);
 
   const handleFilterChange = useCallback((key, newCurrent) => {
     setFilters(prevFilters => ({
@@ -682,29 +889,51 @@ const MilkyWayGalaxy = () => {
       <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
       
       <FilterDashboard isOpen={isDashboardOpen} filters={filters} onFilterChange={handleFilterChange} />
+
+      <PlanetList 
+        isOpen={isPlanetListOpen} 
+        planets={planets} 
+        selectedPlanet={selectedPlanet}
+        onPlanetSelect={handlePlanetSelect}
+      />
       
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', flexDirection: 'column', padding: '20px', boxSizing: 'border-box' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button
-              onClick={() => setIsDashboardOpen(!isDashboardOpen)}
-              style={{
-                pointerEvents: 'auto',
-                padding: '10px 15px',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                backgroundColor: '#374151',
-                color: 'white',
-                zIndex: 20
-              }}
-            >
-             🔭 Filters
-            </button>
-            
-            {/* Empty div to balance flexbox */}
-            <div style={{width: '95px'}}></div> 
-        </div>
+          <button
+            onClick={() => setIsDashboardOpen(!isDashboardOpen)}
+            style={{
+              pointerEvents: 'auto',
+              padding: '10px 15px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              backgroundColor: isDashboardOpen ? '#1e3a8a' : '#374151',
+              color: 'white',
+              zIndex: 20,
+              transition: 'background-color 0.3s ease'
+            }}
+          >
+          🔭 Filters
+          </button>
+          
+          <button
+            onClick={() => setIsPlanetListOpen(!isPlanetListOpen)}
+            style={{
+              pointerEvents: 'auto',
+              padding: '10px 15px',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              backgroundColor: isPlanetListOpen ? '#1e3a8a' : '#374151',
+              color: 'white',
+              zIndex: 20,
+              transition: 'background-color 0.3s ease'
+            }}
+          >
+          🪐 Planets
+          </button>
+      </div>
 
 
         <div style={{ flexGrow: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px' }}>
